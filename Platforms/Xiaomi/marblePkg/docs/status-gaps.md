@@ -146,7 +146,9 @@ existing MemoryMap and do **not** justify an FDT `dr_mode` flip or a PTN3222
 ACPI paste. See [`host-windows-re.md`](host-windows-re.md) §§1–2 and its
 quality-gate appendix. Stock RE + U-Boot cross-check is exhausted: no further
 static firmware delta clears ≥90%; enumeration/Type-C/Vbus remain on-device;
-**no Status ✅**.
+**no Status ✅**. The residual list and the targeted ≥90% static-bug audit
+(wrong INF PE32 / APRIORI order vs pong / missing module — all clear) are in
+[`usb-host-track.md`](usb-host-track.md).
 
 ## 3. USB Power Delivery (PIL + stock charger app embedded, unverified)
 

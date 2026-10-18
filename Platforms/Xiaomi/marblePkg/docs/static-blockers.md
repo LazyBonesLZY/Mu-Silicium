@@ -27,7 +27,9 @@ Date: 2026-10-19 Asia/Shanghai. **No on-device. No Status.md ✅. No upload.**
   DFP/Vbus/eUSB PHY bring-up is on-device. Stock FV lacks UsbConfig module to A/B
   against. No runtime log allowed. **No Status ✅.**
 - **Cite:** `stock-uefi-modules.txt`; `UsbConfigDxe.patched.efi` strings;
-  `docs/re-stock-uefi.md`; [`host-windows-re.md`](host-windows-re.md).
+  `docs/re-stock-uefi.md`; [`host-windows-re.md`](host-windows-re.md);
+  [`usb-host-track.md`](usb-host-track.md) (residual list + ≥90% static-bug
+  audit: INF PE32 / APRIORI vs pong / missing module — all clear).
 
 ### USB Power Delivery — firmware wired; Status flip blocked
 - **Wiring done (this pass):** `PILDxe` enabled (`Include/DXE.inc:98`;
