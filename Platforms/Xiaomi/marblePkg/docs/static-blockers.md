@@ -84,8 +84,25 @@ Date: 2026-10-19 Asia/Shanghai. **No on-device. No Status.md ✅. No upload.**
 
 ### Linux Boot — static PlatCfg+DT+BdsDxe ≥90%; Status flip blocked
 - **Wiring done:** DtPlatform+FdtBlob; stock-identical `uefiplat.cfg`/`BDS_Menu.cfg` FREEFORM; BdsDxe kept (`docs/bds-qcombds-analysis.md`).
+- **Chain verified (docs-only, this pass):** pinned DTB sha256 `a242627f…` is
+  byte-identical to a fresh `scripts/build-marble-dtb.sh` build from
+  `FdtBlob/Source.txt` (`c9f87aac…`) and is present (GUID `25462CDA-…`) in both
+  `FVMAIN.Fv` and the LZMA-nested `FVMAIN` of the packaged
+  `Mu-marble.img`/`SILICIUM_UEFI.fd`; `DtPlatformDxe` defaults to DT
+  (`PcdDefaultDtPref=TRUE`, `EmbeddedPkg.dec:189`) and installs `gFdtTableGuid`
+  (kernel `DEVICE_TREE_GUID`); the arm64 kernel prefers a real DT over ACPI by
+  default (`arch/arm64/kernel/acpi.c:198-209`), so the dual ACPI+DT FDF does not
+  break the DT handoff. FDT pin-to-kernel-HEAD delta is peripheral-only.
+- **Residuals (all on-device or user-side):** actual boot to userspace; ESP
+  `\EFI\BOOT\BOOTAA64.EFI` boot-option discovery through the `BdsDxe` Boot
+  Manager; kernel cmdline (EFI LoadOptions overrides the DTB's hard-coded pmOS
+  `bootargs`; `extlinux.conf` is not read); a `DtAcpiPref` variable set to ACPI
+  would suppress the FDT table. Full detail:
+  [`linux-boot-track.md`](linux-boot-track.md).
 - **Blocker:** Status ✅ would assert successful Linux boot — not statically knowable.
-- **Cite:** `RAW.inc` GUIDs `DDE58710…` / `A91D838E…`; commit `b1e69db`.
+- **Cite:** `RAW.inc` GUIDs `DDE58710…` / `A91D838E…`; commit `b1e69db`;
+  `marble.fdf:104-108`; `DtPlatformDxe.c:148/209`; `MdePkg.dec:634`;
+  [`linux-boot-track.md`](linux-boot-track.md).
 
 ## Goal disposition
 The earlier static pass marked all four Status.md rows at the static ceiling.

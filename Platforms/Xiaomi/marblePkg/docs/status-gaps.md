@@ -30,6 +30,14 @@ Scope: close the four `❌` rows in the repo `Status.md` entry for Xiaomi Poco F
 > consumers, prebuilt-only `QcomBds`, 0 app-launch hooks, 0/6 `ReadyToBoot`
 > handlers). Per the track gate no hook is invented: `BdsDxe` stays, no
 > `QcomBds`, and USB PD remains ❌. Milestone: [`pd-track.md`](pd-track.md).
+>
+> **Linux boot track pass (docs-only).** The Linux chain (`DtPlatformDxe` +
+> pinned `FdtBlob` + FDT config-table handoff + `BdsDxe` Boot Manager; no
+> `QcomBds`) was verified end to end in both `FVMAIN.Fv` and the packaged
+> `Mu-marble.img`. The exact static facts (DT default, cmdline/`extlinux`
+> model, FDT pin, boot-option path) and residuals are in
+> [`linux-boot-track.md`](linux-boot-track.md). No firmware change and **no
+> Status flip**; Linux Boot stays ❌ on on-device evidence.
 
 Evidence base:
 
@@ -248,9 +256,18 @@ invented** — `BdsDxe` stays, no `QcomBds`, no `Status.md` flip. Evidence:
 - Therefore Linux boot remains the Silicium EFI-stub + DT path: `DtPlatformDxe`
   publishes the DT and the Boot Manager (`BootManagerLib` / Mu patch) launches the
   installed boot entry. This is the pong pattern and is what commit `2e5a9f3` set up.
-- Dual ACPI + DT note (from `re-stock-uefi.md` line 36): if ACPI wins the handoff on
-  Linux, the kernel may need `acpi=off` (or `acpi=force`-style policy) to consume the
-  DT instead. To be confirmed on device.
+- **Full static chain, FDT pin, cmdline/`extlinux` model, and boot-option docs:
+  [`linux-boot-track.md`](linux-boot-track.md).** Verified there: the pinned DTB
+  (sha256 `a242627f…`) is byte-identical to a fresh build from
+  `FdtBlob/Source.txt` (`c9f87aac…`), reaches both `FVMAIN.Fv` and the packaged
+  `Mu-marble.img`, and `DtPlatformDxe` defaults to DT (`PcdDefaultDtPref=TRUE`,
+  `EmbeddedPkg.dec:189`) and installs `gFdtTableGuid` (kernel `DEVICE_TREE_GUID`).
+- Dual ACPI + DT note (correction): with a real DT installed, the arm64 kernel
+  enables ACPI **only** for `acpi=on`/`acpi=force`; by default DT wins
+  (`arch/arm64/kernel/acpi.c:198-209`, `dt_is_stub()` false for a full tree). So
+  Linux does **not** need `acpi=off` for the DT handoff; the earlier
+  “may need `acpi=off`” note is superseded. (If the `DtAcpiPref` UEFI variable
+  were ever set to ACPI, `DtPlatformDxe` would suppress the FDT table instead.)
 
 ## Build and commits
 
@@ -286,7 +303,9 @@ invented** — `BdsDxe` stays, no `QcomBds`, no `Status.md` flip. Evidence:
 2. On-device: PD negotiation through `pmic-glink`/ADSP with PILDxe + stock
    `QcomChargerApp` embedded; whether the app auto-launch matters under
    `BdsDxe` (see `usb-pd-re.md` §6).
-3. On-device: Linux boot with ACPI+DT both present (may need `acpi=off`).
+3. On-device: Linux boot via the DT handoff (DT wins by default with the real
+   `FdtBlob`; `acpi=off` is not required unless `DtAcpiPref` was switched to
+   ACPI). See [`linux-boot-track.md`](linux-boot-track.md).
 4. Replace the SM8475 pong DSDT with a marble-native one if a stock XBL/UEFI dump
    ever becomes available.
 
@@ -300,7 +319,7 @@ invented** — `BdsDxe` stays, no `QcomBds`, no `Status.md` flip. Evidence:
 | Pong DSDT is electrically/OEM-correct for SM7475 marble | **~70%** | DSDT OEM Table ID bytes = `SM8475` (`python` header parse of `Silicium-ACPI/Platforms/Xiaomi/marble/DSDT.aml`); marble `SOC_TYPE=2` → PCD OEM revision `0x7475`; no stock XBL/UEFI in OTA extract | **do not** claim Status ✅; keep as closest-Palima stand-in |
 | UEFI USB Host “works on device” | **<50%** | firmware stack present; no `fastboot boot` log | Status stays ❌/unverified |
 | USB PD fully works | **<50%** | `QcomChargerCfg.cfg` + `uefipil.cfg` + PmicGlink/UsbPwrCtrl present; PILDxe + stock `QcomChargerApp` now embedded (`DXE.inc:98`/`:80`); PD is ADSP ChargerPD; mainline DT has no usb-c-connector; no on-device PD contract | Status stays ❌ |
-| Linux Boot via DT path is correctly wired in FV | **≥90%** | `marble.fdf` `DtPlatformDxe` + FREEFORM FdtBlob; `FdtBlob/Source.txt` commit `c9f87aac…`; prior commit `2e5a9f3` | keep; Status unverified on device |
+| Linux Boot via DT path is correctly wired in FV and packaged image | **≥90%** | `marble.fdf` `DtPlatformDxe` + FREEFORM FdtBlob; `FdtBlob/Source.txt` commit `c9f87aac…`; pinned DTB sha256 `a242627f…` == fresh rebuild and present in `FVMAIN.Fv`/packaged `Mu-marble.img`; `DtPlatformDxe.c:209` installs `gFdtTableGuid`, `PcdDefaultDtPref=TRUE` (`EmbeddedPkg.dec:189`); full evidence [`linux-boot-track.md`](linux-boot-track.md) | keep; Status unverified on device |
 | Stock `uefiplat.cfg` + `BDS_Menu.cfg` embedded with stock GUID/UI/RAW | **≥95%** | `docs/stock-fw-re.md` Findings A/E; carves `/workspace/marble/uefi/notes/stock-re/carved/stock-uefiplat.cfg` (sha256 `5116faca…`) and `/workspace/marble/uefi/notes/stock-re/carved/stock-BDS_Menu.cfg` (sha256 `1786bfcb…`), both `cmp`-identical to `Binaries/marble/RawFiles/`; `Include/RAW.inc` GUIDs `DDE58710-…`/`A91D838E-…`; LE GUID byte scan hits `uefi.img`@`0x49000` / `nested.fv`@`0x3AE628` | yes — `RAW.inc` |
 | Linux Boot / PlatCfg statically matches stock FV embedding | **≥90%** | `docs/stock-fw-re.md` Findings A/E + carves above; `RAW.inc` GUID/UI/RAW identical to stock; residual is placement one FV level higher (`FvMain`) and no on-device boot | keep; Status stays ❌ until on-device |
 | `DefaultBDSBootApp=LinuxLoader` reaches firmware like stock | **≥90%** | stock string lives in `Binaries/marble/RawFiles/uefiplat.cfg`; now embedded verbatim via `RAW.inc` GUID `DDE58710-…` (carve identical), so no `ConfigurationMapLib` string map is needed; `ConfigurationMapLib.h` `UINT64 Value` still rules out a *numeric* encoding | yes — stock cfg embed |
