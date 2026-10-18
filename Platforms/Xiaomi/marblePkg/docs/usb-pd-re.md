@@ -56,7 +56,10 @@ Evidence paths:
 - `ChargerExDxe` / `PmicGlinkDxe` / `UsbPwrCtrlDxe` / `QcomChargerDxeLA`: `TRUE` `END`
 - `GLinkDxe`: `PUSH 52858ad7-8b16-4137-9c64-dfe04d942e80` `END`
 - `PmicDxeLa`: `PUSH ae37b942…` AND `PUSH fa5f306b…` `END`
-- `QcomChargerApp`: no DEPEX (UEFI application)
+- `QcomChargerApp`: no DEPEX — `MODULE_TYPE = UEFI_APPLICATION`
+  (`QcomChargerApp.inf`). DXE dispatch does **not** run applications, so FV
+  presence is not execution; a launch must come from BDS / the Boot Manager
+  (see §6.1).
 - `PILDxe`: `TRUE` (`PILDxe.inf` `[Depex] TRUE`, `PILDxe.depex` present)
 
 ## 3. PD / Type-C contract initiation (static)
@@ -146,13 +149,38 @@ statically provable:
 3. **`BdsDxe` does not auto-launch `DefaultChargerApp`.** The stock
    `uefiplat.cfg` string is embedded, but Mu's `BdsDxe` does not implement the
    stock QcomBds string match. The app is in the FV and can be launched through
-   the Boot Manager; automatic pre-HLOS launch is not wired.
+   the Boot Manager; automatic pre-HLOS launch is not wired. The Silicium
+   launch-hook precedent search (§6.1) found no ≥90% template, so no hook was
+   invented.
 4. **Type-C policy is not proven.** Mainline DT has `pmic-glink` but no
    `usb-c-connector`; the UEFI-side `UsbPwrCtrl` status surfaces do not by
    themselves establish a PD contract.
 
 Therefore `Status.md` is **not** flipped: “PILDxe + QcomChargerApp embedded” is
 a static FV fact, not evidence of a successful PD negotiation.
+
+### 6.1 Precedent search for a `DefaultChargerApp` launch hook — none ≥90%
+
+Because the app is in `FVMAIN` but `BdsDxe` does not string-match
+`DefaultChargerApp`, this pass searched the Silicium BDS/DXE tree for any
+*proven* `ReadyToBoot` / `PlatformBootManager` precedent that launches an
+application from a `uefiplat.cfg` string. There is none at the ≥90% bar.
+
+| Searched (2026-10-19, static) | Result |
+|-------------------------------|--------|
+| `DefaultChargerApp` in **buildable source** (`Silicon/`, `Common/`, `Platforms/**` `*.c/.h/.inf/.dsc/.inc/.fdf`) | **0** hits. The string is consumed only by the stock **prebuilt** `Binaries/marble/QcomPkg/Drivers/QcomBds/QcomBds.efi` (`strings -a`: `DefaultChargerApp`, `EnableChargerPdSupport`, `Failed to launch default charger app, status: %r`). 68 `Binaries/*/RawFiles/uefiplat.cfg` carry it as stock config. |
+| `QcomBds` buildable source | **0** — only `QcomBds.{efi,inf,depex}` prebuilts under `Binaries/*` (`MODULE_TYPE = DXE_DRIVER`, `PE32|QcomBds.efi`, `[Depex] TRUE`). No source port to copy a string-match from. |
+| Platforms that enable `QcomBds` | **0 / 85** `Platforms/**/Include/DXE.inc`. |
+| Platforms that enable `QcomChargerApp` | **1 / 85** — marble only (`DXE.inc:80`); no port launches it. |
+| Effective marble `PlatformBootManagerLib` = `Silicon/Silicium/SiliciumPkg/Library/BootManagerLib/BootManager.c` (bound by `SiliciumPkg.dsc.inc:238` to `MdeModulePkg/Universal/BdsDxe/BdsDxe.inf`) | **0** `charger` / `ChargerApp` / `DefaultChargerApp`; **0** application `LoadImage` / `StartImage`. Hooks are `BeforeConsole`, `AfterConsole`, `PriorityBoot` (Boot Manager menu only), `UnableToBoot`; `BootManager()` at `:237` calls `UpdateAcpiTables()`. |
+| Effective marble `DeviceBootManagerLib` = `Silicon/Qualcomm/QcomPkg/Library/PlatformBootManagerLib/PlatformBootManager.c` (`QcomPkg.dsc.inc:36`) | **0** `charger`; `AfterConsole` only signals `gUsbControllerInitGuid`/`gSdCardInitGuid`; `OnDemandConInConnect` only `gUsbControllerInitGuid`; `BdsEntry` only `ProtectRfsSharedArea()`. |
+| `ReadyToBoot` handlers across `Silicon/` + `Common/` | **6** files register one; **0** mention `charger`/`DefaultChargerApp` and **0** call `LoadImage`/`StartImage` (errata patch, advanced logger, var policy, display engine, Nvidia support, WHEA/BERT). The only `Silicon/` one is `KernelErrataPatcherLib.c:191`. |
+
+**Gate:** 0/85 launch precedent + 0 buildable string consumers + a prebuilt-only
+QcomBds means there is **no ≥90% Silicium-proven hook** to add. Per the track
+gate, **no launch hook is invented**; no `QcomBds` is swapped or added; `BdsDxe`
+stays. `QcomChargerApp` remains manually reachable through the Boot Manager.
+Milestone and decision record: [`pd-track.md`](pd-track.md).
 
 ## 7. `rea` status
 

@@ -24,10 +24,39 @@ Date: 2026-10-19 Asia/Shanghai. Gate: ≥90% static only.
 
 `DefaultBDSBootApp=LinuxLoader` is already in FV via stock-identical `uefiplat.cfg` embed (`b1e69db`). Linux path remains: **BdsDxe + BootManagerLib + DtPlatformDxe + FdtBlob** (Silicium), not QcomBds.
 
+## Launch-hook precedent for `DefaultChargerApp` (this pass, docs-only)
+
+The stock launch consumer is **only** the prebuilt `QcomBds.efi`
+(`strings -a`: `DefaultChargerApp`, `EnableChargerPdSupport`,
+`Failed to launch default charger app, status: %r`). It has **no buildable
+source** in this tree and **0/85** `Platforms/**/DXE.inc` enable it. The two BDS
+libraries marble actually links contain **0** charger references and **0**
+application `LoadImage`/`StartImage` calls:
+
+- `PlatformBootManagerLib` = `Silicon/Silicium/SiliciumPkg/Library/BootManagerLib/BootManager.c`
+  (`SiliciumPkg.dsc.inc:238`, bound to `MdeModulePkg/Universal/BdsDxe/BdsDxe.inf`).
+- `DeviceBootManagerLib` = `Silicon/Qualcomm/QcomPkg/Library/PlatformBootManagerLib/PlatformBootManager.c`
+  (`QcomPkg.dsc.inc:36`); its `AfterConsole` only signals `gUsbControllerInitGuid`/`gSdCardInitGuid`.
+
+Across `Silicon/`+`Common/`, **6** files register a `ReadyToBoot` handler; **0**
+mention the charger and **0** call `LoadImage`/`StartImage`. The only one in
+`Silicon/` is `KernelErrataPatcherLib.c:191` (kernel errata, not an app launch).
+
+| Candidate hook | Proven Silicium precedent? | Verdict |
+|----------------|:--------------------------:|---------|
+| Swap/add `QcomBds` | 0/85; prebuilt-only; risks the ACPI/DT BDS path | **reject** (unchanged) |
+| `ReadyToBoot` handler that launches `QcomChargerApp` | 0 handlers; no ≥90% template | **not invented** |
+| `PlatformBootManagerAfterConsole`/`PriorityBoot` app launch | 0 precedents | **not invented** |
+| Boot Manager manual launch of the app | `BdsDxe` built-in | available, not automatic |
+
+**Decision:** keep `BdsDxe`, **no** `QcomBds`, and **do not invent a launch
+hook**. The residual is documented only ([`usb-pd-re.md`](usb-pd-re.md) §6/§6.1,
+[`pd-track.md`](pd-track.md)); no `Status.md` flip.
+
 ## Remaining Status gaps (static posture)
 | Gap | Static posture | Next ≥90% action? |
 |-----|----------------|-------------------|
 | USB Host | Patched UsbConfig + ACPI SDT + XHCI stack present | None without device; no further static knob found |
-| USB PD | ChargerPD/pmic-glink stack + QcomChargerCfg present; stock `QcomChargerApp` now embedded + PILDxe enabled (stock-RE-first, no FDF guessing) | None for auto-launch: `BdsDxe` does not string-match `DefaultChargerApp`; residual documented in `usb-pd-re.md` |
+| USB PD | ChargerPD/pmic-glink stack + QcomChargerCfg present; stock `QcomChargerApp` now embedded + PILDxe enabled (stock-RE-first, no FDF guessing) | **None for auto-launch:** launch-hook precedent search found **0/85** Silicium `DefaultChargerApp` consumers and 0 app-launch hooks; `BdsDxe` kept, no `QcomBds`, no invented hook; residual in `usb-pd-re.md` §6.1 + `pd-track.md` |
 | Windows Boot | ACPI+DT dual; no stock DSDT | None (stock has 0 DSDT) |
 | Linux Boot | DT + stock uefiplat/BDS_Menu embedded; keep BdsDxe | **No Bds swap** |

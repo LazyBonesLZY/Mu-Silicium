@@ -48,12 +48,25 @@ Date: 2026-10-19 Asia/Shanghai. **No on-device. No Status.md ✅. No upload.**
   `usb-c-connector` (pinned DTS comment). `BdsDxe` does not auto-launch
   `DefaultChargerApp` (stock QcomBds only); the app is in the FV but automatic
   pre-HLOS launch is not wired.
+- **Launch-hook precedent search (this pass, docs-only):** `0` buildable
+  `DefaultChargerApp` consumers; `QcomBds` is prebuilt-only (`QcomBds.efi`) and
+  `0/85` `DXE.inc` enable it; the effective `PlatformBootManagerLib`
+  (`SiliciumPkg/Library/BootManagerLib/BootManager.c`, `SiliciumPkg.dsc.inc:238`)
+  and `DeviceBootManagerLib`
+  (`QcomPkg/Library/PlatformBootManagerLib/PlatformBootManager.c`,
+  `QcomPkg.dsc.inc:36`) contain **0** charger references and **0** application
+  `LoadImage`/`StartImage`; `0/6` `ReadyToBoot` handlers across `Silicon/`+
+  `Common/` touch the charger. No ≥90% hook exists → **none invented**;
+  `BdsDxe` kept, no `QcomBds`. Milestone: [`pd-track.md`](pd-track.md).
 - **Cite:** `Platforms/Xiaomi/marblePkg/Include/DXE.inc`; `Include/RAW.inc`
   lines 258-266; `Binaries/marble/RawFiles/QcomChargerCfg.cfg` /
   `uefipil.cfg`; `Binaries/marble/QcomPkg/Application/QcomChargerApp/`;
   `Build/marblePkg/RELEASE_CLANGPDB/FV/FVMAIN.Fv` +
   `FVMAIN.Fv.txt`; `/workspace/marble/uefi/notes/stock-re/carved/stock-uefi-modules.txt`;
-  `docs/usb-pd-re.md`; `docs/bds-qcombds-analysis.md`.
+  `docs/usb-pd-re.md` §6.1; `docs/bds-qcombds-analysis.md`;
+  `docs/pd-track.md`;
+  `Silicon/Silicium/SiliciumPkg/Library/BootManagerLib/BootManager.c`;
+  `Silicon/Qualcomm/QcomPkg/Library/PlatformBootManagerLib/PlatformBootManager.c`.
 
 ### Windows Boot — ACPI family ≥90%; OS boot Status flip blocked
 - **Wiring done:** ACPI+DT dual like pong; Palima TID `SM8475` consistent with Silicium Palima packages.
@@ -80,6 +93,12 @@ USB PD was then reopened on the stock-RE-first policy: the remaining actionable
 wiring (`PILDxe` + stock `QcomChargerApp`) is now implemented and FV-verified,
 but a PD contract still requires on-device ADSP/glink evidence. The four
 `Status.md` rows remain ❌; no further static pass can flip them.
+
+The PD launch-hook pass searched the Silicium BDS/DXE tree for a
+`DefaultChargerApp` auto-launch precedent and found **none ≥90%** (0/85,
+prebuilt-only `QcomBds`, 0 buildable string consumers, 0 app-launch hooks).
+Per the track gate it lands **docs only**: `BdsDxe` is kept, no `QcomBds`, and
+no launch hook is invented. Milestone: [`pd-track.md`](pd-track.md).
 
 The Host/Windows pass landed docs only: stock FV/`Binaries`/DEPEX, pong/venus/b4q
 DXE parity, and U-Boot `sm8475-xiaomi-marble` facts are exhausted for further

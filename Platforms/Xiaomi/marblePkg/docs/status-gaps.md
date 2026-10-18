@@ -24,6 +24,12 @@ Scope: close the four `❌` rows in the repo `Status.md` entry for Xiaomi Poco F
 > deltas ≥90%. See [`host-windows-re.md`](host-windows-re.md) and its
 > quality-gate appendix. USB Host and Windows Boot remain on-device residuals;
 > neither row is flipped to ✅ by this pass.
+>
+> **PD launch-hook pass (docs-only).** The Silicium BDS/DXE tree has **no
+> ≥90% precedent** for auto-launching `DefaultChargerApp` (0 buildable
+> consumers, prebuilt-only `QcomBds`, 0 app-launch hooks, 0/6 `ReadyToBoot`
+> handlers). Per the track gate no hook is invented: `BdsDxe` stays, no
+> `QcomBds`, and USB PD remains ❌. Milestone: [`pd-track.md`](pd-track.md).
 
 Evidence base:
 
@@ -198,6 +204,19 @@ string-match it; only stock QcomBds does), and (4) the Type-C/connector stack.
 The firmware is now wired stock-faithfully, but none of this proves or provides
 the ADSP PD state machine; it remains ❌ until validated on device.
 
+**Launch-hook precedent search (this pass, docs-only).** For item (3), a static
+search of the Silicium BDS/DXE tree found **no ≥90% precedent** for a
+`ReadyToBoot`/`PlatformBootManager` auto-launch of `DefaultChargerApp`:
+`DefaultChargerApp` has **0** buildable-source consumers; `QcomBds` exists only
+as prebuilt `Binaries/*/QcomBds.efi` and is enabled by **0/85** `DXE.inc`; the
+effective `PlatformBootManagerLib`
+(`SiliciumPkg/Library/BootManagerLib/BootManager.c`) and `DeviceBootManagerLib`
+(`QcomPkg/Library/PlatformBootManagerLib/PlatformBootManager.c`) contain **0**
+charger references and **0** application `LoadImage`/`StartImage`; **0/6**
+`ReadyToBoot` handlers touch the charger. Per the track gate **no hook is
+invented** — `BdsDxe` stays, no `QcomBds`, no `Status.md` flip. Evidence:
+[`usb-pd-re.md`](usb-pd-re.md) §6.1 and milestone [`pd-track.md`](pd-track.md).
+
 ## 4. Linux Boot (stock PlatCfg/BDS embedded; DT path kept)
 
 - `marble.fdf` keeps `DtPlatformDxe` and the pinned FdtBlob
@@ -290,6 +309,7 @@ the ADSP PD state machine; it remains ❌ until validated on device.
 | Windows Boot succeeds with current ACPI | **<50%** | ACPI stack and DSDT present; WoA winload/drivers/secure-boot policy and storage enumeration unverified | Status stays ❌/unverified |
 | Replace `BdsDxe` with `QcomBds` | **≤40% / reject** | `0` Silicium `DXE.inc` use `QcomBds`; **85** use `BdsDxe` (`Platforms/**/Include/DXE.inc`); `Silicon/Silicium/SiliciumPkg/SiliciumPkg.dsc.inc` binds `PlatformBootManagerLib\|SiliciumPkg/Library/BootManagerLib/BootManagerLib.inf` to `MdeModulePkg/Universal/BdsDxe/BdsDxe.inf`; stock nested FV has `QcomBds` UI (`notes/stock-re/carved/nested.fv`, `stock-uefi-modules.txt`) but the Mu path is Silicium `BdsDxe` (`docs/bds-qcombds-analysis.md`) | no — keep `BdsDxe`; no swap/add |
 | Embed stock `QcomChargerApp` + enable `PILDxe` in FV | **≥95%** | `DXE.inc:80` app, `DXE.inc:98` PILDxe; `FVMAIN.Fv` UTF-16 UI + GUID scan contains both after rebuild; stock app carve SHA256 `ff45707b…` = `Binaries/marble`; stock `stock-uefi-modules.txt:36` + `stock-uefiplat.cfg:129` name it; PILDxe enabled in **56** ports incl. pong (`pongPkg/Include/DXE.inc:102`); full evidence `docs/usb-pd-re.md` | yes — done in `e777d70` |
-| `QcomChargerApp` auto-launch under Mu `BdsDxe` | **~0% / residual** | `BdsDxe` kept (85/85 Silicium ports); no `DefaultChargerApp` string match in `BdsDxe`; stock QcomBds only; app is in FV and can be launched from Boot Manager | no — document residual (`usb-pd-re.md` §6) |
+| `QcomChargerApp` auto-launch under Mu `BdsDxe` | **~0% / residual** | `BdsDxe` kept (85/85 Silicium ports); no `DefaultChargerApp` string match in `BdsDxe`; stock `QcomBds` only (prebuilt `.efi`, 0/85 `DXE.inc`); app is in FV and can be launched from Boot Manager | no — document residual (`usb-pd-re.md` §6/§6.1, `pd-track.md`) |
+| No ≥90% Silicium `ReadyToBoot`/`BootManager` `DefaultChargerApp` launch precedent | **≥95% (none exists)** | buildable-source `DefaultChargerApp` consumers = 0 (`Silicon/`,`Common/`,`Platforms/**` `*.c/.h/.inf/.dsc/.inc/.fdf`); `QcomBds` source = 0 (only `Binaries/*/QcomBds.efi`); `0/85` `DXE.inc` enable `QcomBds`; effective `PlatformBootManagerLib` = `SiliciumPkg/Library/BootManagerLib/BootManager.c` and `DeviceBootManagerLib` = `QcomPkg/Library/PlatformBootManagerLib/PlatformBootManager.c` contain 0 charger refs / 0 app `LoadImage`/`StartImage`; 0/6 `ReadyToBoot` handlers touch the charger; `QcomChargerApp.inf` is `UEFI_APPLICATION` (not DXE-dispatched) | docs only — **no hook invented**, `BdsDxe` kept, no `QcomBds` (`usb-pd-re.md` §6.1, `pd-track.md`) |
 
 **Commit policy:** commit firmware wiring that clears a ≥90% row. Never flip repo `Status.md` ❌→✅ without on-device evidence. Residual <90% claims stay in this appendix as risks. When no code delta clears ≥90%, land docs and the quality-gate record only (as in the Host/Windows pass).
