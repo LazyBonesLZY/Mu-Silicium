@@ -14,8 +14,18 @@ boot narrative. `Status.md` `Windows Boot` stays **❌**.
 | UFS block I/O for the ESP (winload source) | `UFSDxe` (patched) + `DiskIo` + `PartitionDxe` + `Fat` all in FVMAIN, APRIORI-ordered | ≥90% |
 | WoA boot-manager path | `BdsDxe` + Silicium `PlatformBootManagerLib` (DuoWoA/Microsoft heritage) → `MsBootPolicy` → default `\EFI\BOOT\BOOTAA64.EFI` | ≥90% |
 | Secure-boot policy handling for WoA | `SecureBootHandlerLib` probes `\EFI\Microsoft\Boot\bootmgfw.efi`; `ENABLE_SECUREBOOT=0` in the shipped build | ≥95% |
+| Second-pass sibling hunt (effective-FV set, §9) | **No WoA-boot gap.** Only delta is `ProjectInfoDxe`/`UCDxe` (APRIORI-only ⇒ absent from FV); refuted as a WoA blocker | ≥90% |
 | **≥90% static firmware gap found?** | **None.** Docs only; no fake AML, no FV churn | ≥90% |
 | Windows Boot Status flip | **Blocked.** winload/kernel/drivers/SecureBoot policy are on-device | — |
+
+> **Second pass note.** §9 recomputes the sibling comparison over the
+> *effective FV module set* (`DXE.inc` + explicit `marble.fdf` `INF`s), because
+> `APRIORI.inc` here is a **dispatch-order list only** and does not itself place
+> a module in the FV. It finds one real, previously-unreported inconsistency
+> (`ProjectInfoDxe`/`UCDxe` are APRIORI-only), proves it harmless and non-WoA,
+> and re-confirms the static ceiling. Update to §2.1: “APRIORI/DXE same as
+> pong” is true for dispatch order, but marble's `DXE.inc` **does** differ from
+> venus/vili/b4q by those two prebuilt modules.
 
 No code change, no rebuild. Artifact unchanged: `Mu-marble.img` 1,728,512 B,
 SHA256 `f896e61992c7f06a17df74639b9f6f8443054ce1720abe15a31c011ea02352f6`.
@@ -213,3 +223,132 @@ review: *no further static firmware P0 inventable for Host/Windows*.
 
 Docs only: **this file**. No DXE/APRIORI/FDF/ACPI/DT edit (none cleared ≥90%),
 no rebuild, no upload. `Status.md` `Windows Boot` stays ❌.
+
+## 9. Second-pass sibling hunt — effective-FV membership (2026-10-19)
+
+**Why a second pass.** §2–§5 compared the `APRIORI.inc` ∪ `DXE.inc` module
+*union*. In this tree `APRIORI.inc` encodes **dispatch order only** — an `INF`
+there does **not** place the module in the FV. FV contents come from `DXE.inc`
+plus the explicit `INF` lines in `marble.fdf`. The union therefore hid modules
+listed in `APRIORI.inc` but absent from `DXE.inc`. This pass re-ran the sibling
+diff over the **effective FV set** (= `DXE.inc` ⊎ explicit FDF `INF`s) and
+audited every APRIORI-only entry.
+
+### 9.1 Comparators
+
+| Port | SoC family | `Status.md` Windows | `DXE.inc` modules |
+|------|-----------|:-------------------:|:-----------------:|
+| marble | Palima (SM7475-AB) | ❌ | 83 |
+| pong | Palima (SM8475) | ✅ | 83 |
+| b4q | Palima (SM8475) | ✅ | 84 |
+| venus | Lahaina | ✅ | 82 |
+| ingres | Waipio | ✅ | 82 |
+| vili | Lahaina | ✅ | 83 |
+| alioth | Kona | ✅ | 83 |
+
+Method: strip comments/path prefixes, take `INF …\.inf` from `DXE.inc`
+(the FDF `INF`s are the same common set on every port: `SmbiosDxe`,
+`SmBiosTableDxe`, `AcpiTableDxe`, `AcpiPlatformDxe`, `<port>/AcpiTables.inf`,
+`IortDtDxe`, `DtPlatformDxe`, `RamManagerDxe`), and `comm` the sorted sets.
+
+### 9.2 Effective modules a Windows✅ sibling has that marble's FV lacks
+
+| Module(s) | pong (P) | b4q (P) | venus | ingres | vili | alioth | Binary role (strings) | WoA-boot role |
+|-----------|:--------:|:-------:|:-----:|:------:|:----:|:------:|-----------------------|:-------------:|
+| `ProjectInfoDxe` | — | — | ✔ | ✔ | ✔ | — | `EFI_GetProjectInfo` ADC/hw-id (MIUI project) | none |
+| `UCDxe` | APRIORI-only | ✔ | ✔ | APRIORI-only | ✔ | — | `CipherProtocol`/`Hash`/`Mac`, HWIO, Npa | none |
+| `NT_DeviceInfoDxe` | ✔ | — | — | — | — | — | Nothing-device info | none |
+| `SamsungDxe/{Ccic,Muic,Chg,Redriver,SubPmic}Dxe` | — | ✔ | — | — | — | — | Samsung charging/MUIC/redriver | none |
+| `AdcDxe`,`CipherDxe`,`HashDxe`,`MacDxe`,`PdcDxe` | — | — | — | — | — | ✔ | Kona ADC/crypto/PDC | none |
+
+- Strict task criterion (“shared by ≥2 **Palima** Windows✅ ports”, i.e. both
+  pong and b4q): **∅ — zero modules.**
+- Broad criterion (“shared by ≥2 Windows✅ ports”): only
+  **`ProjectInfoDxe`** (venus/ingres/vili) and **`UCDxe`** (b4q/venus/vili).
+  Both are audited and refuted in §9.3.
+
+### 9.3 New finding — `ProjectInfoDxe` + `UCDxe` are APRIORI-only ⇒ not in FV
+
+This is a real, previously-unreported inconsistency, not a WoA gap:
+
+- `APRIORI.inc` lists `Binaries/marble/QcomPkg/Drivers/{ProjectInfoDxe,UCDxe}`
+  (lines 21 and 101) but marble's `DXE.inc` omits both, so their FFS files are
+  **not** in `FVMAIN`. Cross-check: GUID `0A8D6360-7EF3-11EA-B20F-B3A524584400`
+  (`ProjectInfoDxe`) and `5F0937CD-73F9-445E-B320-BB6FD5D3CBDE` (`UCDxe`) are
+  **absent** from `FVMAIN.Fv.txt`/`Guid.xref`, yet **present** in the generated
+  APRIORI file
+  (`Build/…/FV/Ffs/FC510EE7-…FVMAIN/FC510EE7-…FVMAIN.Apri`).
+  By contrast `IortDtDxe` is APRIORI-only but *is* in the FV because
+  `marble.fdf` has an explicit `INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf`.
+- **Harmless for dispatch:** `MdeModulePkg/Core/Dxe/Dispatcher/Dispatcher.c`
+  `:1427-1443` walks the APRIORI GUID array and schedules a driver only when a
+  discovered FFS file matches; an absent GUID is silently skipped (no hang, no
+  assert). The FV/APRIORI is internally consistent enough to boot.
+- **Not WoA-boot-critical — proven by Windows✅ comparators:**
+  - pong (Palima, Windows✅) has **no** `ProjectInfoDxe` binary at all and lists
+    `UCDxe` APRIORI-only too (same effective FV omission). So pong reaches
+    Windows *without* either module.
+  - b4q (Palima, Windows✅) has no `ProjectInfoDxe`; alioth (Windows✅) has
+    neither.
+  - Roles are unrelated to the boot chain: `ProjectInfoDxe` = MIUI
+    project/hwid ADC reader; `UCDxe` = Qualcomm crypto (Cipher/Hash/Mac)
+    driver. Neither provides UFS/block/`SimpleFileSystem`, BDS, ACPI or SMBIOS.
+- **Infeasible as a casual FV add anyway:** `UCDxe.efi` = 176,128 B and
+  `ProjectInfoDxe.efi` = 57,344 B vs FVMAIN headroom of **952 B**
+  (`taken 0x651c48 / total 0x652000`). Adding them needs an FD/FV + BootShim
+  budget change, i.e. exactly the FV churn §6.5 warns against, for no WoA gain.
+- **Disposition:** housekeeping (add to `DXE.inc` only if the FV is resized for
+  another reason). **Does not clear ≥90% for WoA boot; no code change.**
+
+### 9.4 `DisplayReEnablerDxe` — refuted as a delta (director pre-check)
+
+- pong `DXE.inc:76` is commented out: `#INF QcomPkg/Drivers/DisplayReEnablerDxe/…`
+  and sits **inside** `!if $(USE_CUSTOM_DISPLAY_DRIVER) == 1` (pong `pong.dsc:26`
+  `= 1` ⇒ custom `DisplayDxe`; marble `marble.dsc:27` `= 0` ⇒ `SimpleFbDxe`).
+  It is **not** in pong's effective FV; `DisplayReEnablerDxe.inf` is a
+  display-path driver (`Silicon/Qualcomm/QcomPkg/QcomPkg.dsc.inc:55`) with no
+  storage/BDS/ACPI role.
+- Verdict: **confirm the director pre-check — refuted as a ≥90% WoA addition.**
+  Adding it would drag marble onto the custom-display path (framebuffer model
+  change), not advance Windows boot.
+
+### 9.5 SMBIOS / SecureBoot re-confirmed (device-independent)
+
+- SMBIOS is end-to-end baked into the built FV: `SmBiosTableDxe.efi` contains
+  `Poco F5` / `marble` / `SM7475-AB`; `FVMAIN.Fv` too (`Xiaomi`, `Poco F5`,
+  `Poco_F5_marble`, `Snapdragon (TM) 7+ Gen 2`). All 7 `PcdSmbios*`
+  referenced by `SmBiosTable.c` are set (5 in `marble.dsc`, processor model/part
+  in `PalimaPkg.dsc.inc` `SOC_TYPE=2`).
+- SecureBoot is a global build flag, not per-port: `build_uefi.py:227`
+  `ENABLE_SECUREBOOT={0|1}` with default **0**
+  (`build_active_devices.sh:27`, opt-in `-s`); `marble`'s
+  `TOOLS_DEF.AARCH64` confirms `-D ENABLE_SECUREBOOT=0`. The built `BdsDxe.efi`
+  carries the wide paths `\EFI\BOOT\BOOTAA64.EFI`,
+  `\EFI\Microsoft\Boot\bootmgfw.efi`, `\EFI\Microsoft\Boot\SiPolicy.p7b`.
+  No marble-specific divergence.
+
+## 10. Static ceiling and goal disposition — **blocked**
+
+**Static ceiling reached.** Across two passes, every statically checkable
+firmware input to the WoA chain is at parity with ≥2 Windows✅ siblings and no
+firmware delta clears ≥90% for *Windows boot*:
+
+| Angle | Result |
+|-------|--------|
+| ACPI table list vs pong/b4q | identical `AcpiTables.inf` `[Binaries]`; DSDT md5 `d485f263…` ≡ pong |
+| Runtime DSDT patch | shared `PalimaPkg` `AcpiTableUpdateLib`; `UFS0`/`URS0`/`USB0`/`UFN0` present |
+| UFS + DiskIo + Partition + Fat + BdsDxe | all in `FVMAIN` (GUIDs §3.2); APRIORI order `DiskIo→Partition→English→Sdcc→UFSDxe→Fat→BdsDxe` ≡ pong/b4q |
+| UFS 8-byte patch | same `MOVZ W1,#1 ; BL` rewrite at each sibling's site |
+| SMBIOS / SecureBoot | end-to-end confirmed (§9.5), device-independent |
+| Sibling DXE gaps (effective FV) | none for ≥2 Palima ports; only non-WoA `ProjectInfoDxe`/`UCDxe` (§9.3) |
+| Stock Android FV AML to lift | 0 DSDT/SSDT/XSDT/RSDT/FACP/APIC (`host-windows-re.md` §3) |
+
+What remains is **not** firmware and cannot be cleared statically:
+`winload.efi` + kernel + Windows drivers (UFS/PCIe/USB), the BCD authored by
+Windows Setup, Secure Boot policy as seen by Windows, and actual ESP
+enumeration/`bootmgfw` execution. **No fake AML, no invented driver, no FV
+churn.** Therefore the Windows Boot goal is **blocked on the static ceiling**
+(on-device evidence required); `Status.md` `Windows Boot` stays ❌.
+
+Artifact unchanged this pass (**docs only**): `Mu-marble.img` 1,728,512 B,
+SHA256 `f896e61992c7f06a17df74639b9f6f8443054ce1720abe15a31c011ea02352f6`.

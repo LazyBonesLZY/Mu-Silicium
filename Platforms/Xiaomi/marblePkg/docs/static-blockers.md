@@ -75,7 +75,9 @@ Date: 2026-10-19 Asia/Shanghai. **No on-device. No Status.md ✅. No upload.**
   add; pong/venus/b4q parity yields no further table delta ≥90%; U-Boot facts add
   no ACPI requirement beyond the existing `USB0`/`UFS0` nodes. No further static
   firmware delta clears ≥90% — see [`host-windows-re.md`](host-windows-re.md) §3
-  and Appendix A.
+  and Appendix A; the second pass over the **effective FV set** (`DXE.inc` +
+  FDF `INF`s) confirms zero ≥2-Palima-port gaps and refutes `ProjectInfoDxe` /
+  `UCDxe` / `DisplayReEnablerDxe` as WoA-boot deltas — [`woa-track.md`](woa-track.md) §9.
 - **Residual blocker:** WoA winload/drivers/secure-boot policy and storage/USB
   enumeration are on-device. ACPI enablement is necessary but not sufficient.
   **No Status ✅.**
