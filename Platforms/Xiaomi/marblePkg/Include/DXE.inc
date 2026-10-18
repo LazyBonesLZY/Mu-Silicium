@@ -77,6 +77,7 @@
   INF Binaries/marble/QcomPkg/Drivers/ChargerExDxe/ChargerExDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/PmicGlinkDxe/PmicGlinkDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/QcomChargerDxe/QcomChargerDxeLA.inf
+  INF Binaries/marble/QcomPkg/Application/QcomChargerApp/QcomChargerApp.inf
   INF Binaries/marble/QcomPkg/Drivers/UsbPwrCtrlDxe/UsbPwrCtrlDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/TsensDxe/TsensDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/LimitsDxe/LimitsDxe.inf
@@ -94,6 +95,6 @@
   INF Binaries/marble/QcomPkg/Drivers/UsbConfigDxe/UsbConfigDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/UsbInitDxe/UsbInitDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/RNGDxe/RngDxe.inf
-  #INF Binaries/marble/QcomPkg/Drivers/PILDxe/PILDxe.inf
+  INF Binaries/marble/QcomPkg/Drivers/PILDxe/PILDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/PILProxyDxe/PILProxyDxe.inf
   INF Binaries/marble/QcomPkg/Drivers/SPSSDxe/SPSSDxe.inf

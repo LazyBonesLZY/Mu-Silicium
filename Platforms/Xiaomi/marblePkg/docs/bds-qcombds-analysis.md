@@ -28,6 +28,6 @@ Date: 2026-10-19 Asia/Shanghai. Gate: ≥90% static only.
 | Gap | Static posture | Next ≥90% action? |
 |-----|----------------|-------------------|
 | USB Host | Patched UsbConfig + ACPI SDT + XHCI stack present | None without device; no further static knob found |
-| USB PD | ChargerPD/pmic-glink stack + QcomChargerCfg present; stock has `QcomChargerApp` UI | Optional: embed/start charger app only if Silicium precedent ≥90% (pong/marble DXE check) — else document |
+| USB PD | ChargerPD/pmic-glink stack + QcomChargerCfg present; stock `QcomChargerApp` now embedded + PILDxe enabled (stock-RE-first, no FDF guessing) | None for auto-launch: `BdsDxe` does not string-match `DefaultChargerApp`; residual documented in `usb-pd-re.md` |
 | Windows Boot | ACPI+DT dual; no stock DSDT | None (stock has 0 DSDT) |
 | Linux Boot | DT + stock uefiplat/BDS_Menu embedded; keep BdsDxe | **No Bds swap** |
