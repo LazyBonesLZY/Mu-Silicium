@@ -81,6 +81,10 @@
 
 [Components]
   #
-  # ACPI Tables
+  # ACPI Tables (dual ACPI + DT boot, same as pong).
+  # UsbConfigDxe calls UsbConfigUpdateACPIEntry/UpdateDsdtTable, so the ACPI SDT
+  # must exist for host/Windows ACPI hooks. Drivers (AcpiTableDxe/
+  # AcpiPlatformDxe) come from SiliciumPkg.dsc.inc; only the table module is
+  # platform-specific. See docs/re-stock-uefi.md.
   #
-  #marble/AcpiTables.inf
+  marble/AcpiTables.inf
