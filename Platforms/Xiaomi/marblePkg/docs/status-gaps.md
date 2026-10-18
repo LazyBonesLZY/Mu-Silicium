@@ -17,6 +17,13 @@ Scope: close the four `❌` rows in the repo `Status.md` entry for Xiaomi Poco F
 > [`static-blockers.md`](static-blockers.md) for the per-row hard blockers, citations,
 > and goal disposition, and [`usb-pd-re.md`](usb-pd-re.md) for the PD evidence.
 > No on-device validation is available or claimed.
+>
+> **Host/Windows stock-RE pass (docs-only).** The stock FV carve,
+> `Binaries`/strings/DEPEX review, pong/venus/b4q DXE/APRIORI parity, and U-Boot
+> `sm8475-xiaomi-marble` board facts are exhausted for further static firmware
+> deltas ≥90%. See [`host-windows-re.md`](host-windows-re.md) and its
+> quality-gate appendix. USB Host and Windows Boot remain on-device residuals;
+> neither row is flipped to ✅ by this pass.
 
 Evidence base:
 
@@ -33,14 +40,17 @@ Evidence base:
   `EFI_CONFIGURATION_ENTRY_DESCRIPTOR.Value` is `UINT64` (numeric only).
 - `Binaries/marble/QcomPkg/Drivers/UsbConfigDxe/UsbConfigDxe.patched.efi` — local
   byte-level verification (`cmp -l`, `od`, `strings`).
+- `Platforms/Xiaomi/marblePkg/docs/host-windows-re.md` — stock USB Host /
+  Windows ACPI RE + U-Boot `sm8475-xiaomi-marble` facts, FVMAIN/image
+  quality-gate appendix (106 GUIDs, 0 duplicates, 952 B FV headroom).
 
 ## Feature matrix
 
 | Status.md row | Before | After this change | Mechanism / evidence | On-device |
 |:--------------|:------:|:-----------------:|:---------------------|:---------:|
-| USB Host Mode | ❌ | implemented, unverified | patched `UsbConfigDxe.patched.efi` kept (CBZ→B @ `0x5348`); XHCI/UsbBus APRIORI+DXE order is byte-for-byte identical to pong; ACPI SDT now present for `UsbConfigUpdateACPIEntry`/`UpdateDsdtTable` | ❌ not tested |
+| USB Host Mode | ❌ | implemented, unverified | patched `UsbConfigDxe.patched.efi` kept (CBZ→B @ `0x5348`); XHCI/UsbBus APRIORI+DXE order is byte-for-byte identical to pong; ACPI SDT now present for `UsbConfigUpdateACPIEntry`/`UpdateDsdtTable`; stock FV has no UsbConfig/XHCI UI, U-Boot DWC3/eUSB mapping documented in [`host-windows-re.md`](host-windows-re.md) §§1–2 | ❌ not tested |
 | USB Power Delivery | ❌ | wired (PIL + stock charger app), unverified | `QcomChargerCfg.cfg` + `uefipil.cfg` embedded; `PILDxe` enabled (`DXE.inc:98`) and stock `QcomChargerApp` embedded (`DXE.inc:80`); `PmicGlinkDxe`/`UsbPwrCtrlDxe`/`QcomChargerDxeLA`/`ChargerExDxe` in APRIORI+DXE; PD itself is ChargerPD over `pmic-glink` (ADSP); see `docs/usb-pd-re.md` | ❌ not tested |
-| Windows Boot | ❌ | enabled, unverified | ACPI stack enabled in `marble.dsc`/`marble.fdf` (`AcpiTableDxe`, `AcpiPlatformDxe`, `ACPITABLE marble/AcpiTables.inf`) alongside `DtPlatformDxe` + FdtBlob; DSDT carries `URS0`/`USB0`/`UFN0` | ❌ not tested |
+| Windows Boot | ❌ | enabled, unverified | ACPI stack enabled in `marble.dsc`/`marble.fdf` (`AcpiTableDxe`, `AcpiPlatformDxe`, `ACPITABLE marble/AcpiTables.inf`) alongside `DtPlatformDxe` + FdtBlob; DSDT carries `URS0`/`USB0`/`UFN0`; stock ACPI carve has 0 DSDT/SSDT/XSDT/RSDT/FACP/APIC tables, and pong parity yields no further table delta (`host-windows-re.md` §3) | ❌ not tested |
 | Linux Boot | ❌ | PlatCfg/BDS embedded, unverified | `DtPlatformDxe` + pinned `FdtBlob` kept; stock `uefiplat.cfg` (`DDE58710-…`) + `BDS_Menu.cfg` (`A91D838E-…`) RAW now embedded in `RAW.inc` with GUID/UI/bytes identical to stock (`docs/stock-fw-re.md` Findings A/E); EFI-stub + DT + Boot Manager path; `BdsDxe` kept by design — no `QcomBds` swap or addition (`docs/bds-qcombds-analysis.md`) | ❌ not tested |
 | USB Device Mode | ✅ | unchanged | `UsbfnDwc3Dxe` + `UsbDeviceDxe`/`UsbConfigDxe`/`UsbInitDxe` unchanged | n/a |
 | Mass Storage | ✅ | unchanged | `UsbMsdDxe` + `UsbMassStorageDxe` unchanged | n/a |
@@ -103,6 +113,14 @@ driver expects (`Silicium-ACPI/Platforms/Xiaomi/marble/Decompiled/DSDT.dsl`):
 - Windows boot additionally depends on storage/USB class drivers and the OS itself;
   ACPI enablement is necessary but not sufficient, and this is unverified.
 
+**Static ceiling for Windows Boot (docs-only, this pass).** The stock
+`uefi.img`/nested-FV scan finds **0** valid DSDT/SSDT/XSDT/RSDT/FACP/APIC
+tables, so there is no marble-native AML to lift. The pong/venus/b4q parity and
+U-Boot `sm8475-xiaomi-marble` facts add no ACPI/DT delta ≥90% for Host or
+Windows. See [`host-windows-re.md`](host-windows-re.md) §§2–3 and its
+quality-gate appendix. The residuals are on-device (WoA winload/drivers/
+secure-boot policy); **no Status ✅**.
+
 ## 2. USB Host (UEFI) (kept, verified against pong)
 
 - `Binaries/marble/QcomPkg/Drivers/UsbConfigDxe/UsbConfigDxe.inf` already selects
@@ -120,6 +138,15 @@ driver expects (`Silicium-ACPI/Platforms/Xiaomi/marble/Decompiled/DSDT.dsl`):
   No divergence to fix.
 - Note: mainline DT sets `usb_1` `dr_mode = "peripheral"`, which affects the Linux
   host role only; it does not change the UEFI XHCI/UsbBus path.
+
+**Static ceiling for USB Host (docs-only, this pass).** The stock nested FV ships
+no `UsbConfig`/XHCI module UI; the Host stack is Device-Binaries. U-Boot facts
+(`usb@a600000` DWC3, eUSB2 `nxp,ptn3222`, SimpleFB, memory windows) map to the
+existing MemoryMap and do **not** justify an FDT `dr_mode` flip or a PTN3222
+ACPI paste. See [`host-windows-re.md`](host-windows-re.md) §§1–2 and its
+quality-gate appendix. Stock RE + U-Boot cross-check is exhausted: no further
+static firmware delta clears ≥90%; enumeration/Type-C/Vbus remain on-device;
+**no Status ✅**.
 
 ## 3. USB Power Delivery (PIL + stock charger app embedded, unverified)
 
@@ -216,17 +243,25 @@ the ADSP PD state machine; it remains ❌ until validated on device.
   `.home` are excluded from commits. The ACPI files live in the `Silicium-ACPI`
   submodule, so they are committed there and the outer repo records the updated
   submodule pointer alongside `marble.dsc`/`marble.fdf`/docs.
-- USB PD pass (this commit): same build command after enabling `PILDxe` and
+- USB PD pass (`e777d70`): same build command after enabling `PILDxe` and
   embedding `QcomChargerApp` → **Success**. `FVMAIN.Fv` is 6,627,328 B
   (952 B free); `Mu-marble.img` is **1,728,512 B**, SHA256
   `f896e61992c7f06a17df74639b9f6f8443054ce1720abe15a31c011ea02352f6`.
   FVMAIN UTF-16 UI scan contains both `PILDxe` and `QcomChargerApp`.
   Committed on local branch `marble` and pushed to `fork/marble` only
   (never `origin`; never `fork/main`). `Mu_Basecore` remains uncommitted.
+- Host/Windows docs pass (this commit): **no rebuild**, no DXE/ACPI/DT or
+  `Status.md` change. `Mu-marble.img` remains 1,728,512 B / SHA256
+  `f896e61992c7f06a17df74639b9f6f8443054ce1720abe15a31c011ea02352f6`.
+  Docs only: [`host-windows-re.md`](host-windows-re.md) plus pointers in this
+  file and [`static-blockers.md`](static-blockers.md); pushed to `fork/marble`
+  only.
 
 ## Unverified / follow-up
 
 1. On-device: USB host (XHCI enumeration) and Windows boot with the new DSDT.
+   Stock RE + U-Boot cross-check is exhausted; the remaining evidence is runtime
+   ([`host-windows-re.md`](host-windows-re.md) §5).
 2. On-device: PD negotiation through `pmic-glink`/ADSP with PILDxe + stock
    `QcomChargerApp` embedded; whether the app auto-launch matters under
    `BdsDxe` (see `usb-pd-re.md` §6).
@@ -248,9 +283,11 @@ the ADSP PD state machine; it remains ❌ until validated on device.
 | Stock `uefiplat.cfg` + `BDS_Menu.cfg` embedded with stock GUID/UI/RAW | **≥95%** | `docs/stock-fw-re.md` Findings A/E; carves `/workspace/marble/uefi/notes/stock-re/carved/stock-uefiplat.cfg` (sha256 `5116faca…`) and `/workspace/marble/uefi/notes/stock-re/carved/stock-BDS_Menu.cfg` (sha256 `1786bfcb…`), both `cmp`-identical to `Binaries/marble/RawFiles/`; `Include/RAW.inc` GUIDs `DDE58710-…`/`A91D838E-…`; LE GUID byte scan hits `uefi.img`@`0x49000` / `nested.fv`@`0x3AE628` | yes — `RAW.inc` |
 | Linux Boot / PlatCfg statically matches stock FV embedding | **≥90%** | `docs/stock-fw-re.md` Findings A/E + carves above; `RAW.inc` GUID/UI/RAW identical to stock; residual is placement one FV level higher (`FvMain`) and no on-device boot | keep; Status stays ❌ until on-device |
 | `DefaultBDSBootApp=LinuxLoader` reaches firmware like stock | **≥90%** | stock string lives in `Binaries/marble/RawFiles/uefiplat.cfg`; now embedded verbatim via `RAW.inc` GUID `DDE58710-…` (carve identical), so no `ConfigurationMapLib` string map is needed; `ConfigurationMapLib.h` `UINT64 Value` still rules out a *numeric* encoding | yes — stock cfg embed |
-
+| Stock FV + pong/venus/b4q + U-Boot cross-check yields no further ≥90% Host/Windows firmware delta | **≥90% (ceiling)** | [`host-windows-re.md`](host-windows-re.md) §§1–3; stock nested FV lacks UsbConfig/XHCI UIs (`stock-uefi-modules.txt`); stock ACPI carve has 0 DSDT/SSDT/XSDT/RSDT/FACP/APIC; U-Boot `usb@a600000`/SimpleFB/memory facts already match MemoryMap | docs only — no code change |
+| Stock Android `uefi.img` has no WoA ACPI tables to lift | **≥95%** | scan of `extracted/fw-uefi/*` + carved nested FV: 0 valid ACPI tables; [`host-windows-re.md`](host-windows-re.md) §3 | docs only |
+| Windows Boot succeeds with current ACPI | **<50%** | ACPI stack and DSDT present; WoA winload/drivers/secure-boot policy and storage enumeration unverified | Status stays ❌/unverified |
 | Replace `BdsDxe` with `QcomBds` | **≤40% / reject** | `0` Silicium `DXE.inc` use `QcomBds`; **85** use `BdsDxe` (`Platforms/**/Include/DXE.inc`); `Silicon/Silicium/SiliciumPkg/SiliciumPkg.dsc.inc` binds `PlatformBootManagerLib\|SiliciumPkg/Library/BootManagerLib/BootManagerLib.inf` to `MdeModulePkg/Universal/BdsDxe/BdsDxe.inf`; stock nested FV has `QcomBds` UI (`notes/stock-re/carved/nested.fv`, `stock-uefi-modules.txt`) but the Mu path is Silicium `BdsDxe` (`docs/bds-qcombds-analysis.md`) | no — keep `BdsDxe`; no swap/add |
-| Embed stock `QcomChargerApp` + enable `PILDxe` in FV | **≥95%** | `DXE.inc:80` app, `DXE.inc:98` PILDxe; `FVMAIN.Fv` UTF-16 UI + GUID scan contains both after rebuild; stock app carve SHA256 `ff45707b…` = `Binaries/marble`; stock `stock-uefi-modules.txt:36` + `stock-uefiplat.cfg:129` name it; PILDxe enabled in **56** ports incl. pong (`pongPkg/Include/DXE.inc:102`); full evidence `docs/usb-pd-re.md` | yes — done in this commit |
+| Embed stock `QcomChargerApp` + enable `PILDxe` in FV | **≥95%** | `DXE.inc:80` app, `DXE.inc:98` PILDxe; `FVMAIN.Fv` UTF-16 UI + GUID scan contains both after rebuild; stock app carve SHA256 `ff45707b…` = `Binaries/marble`; stock `stock-uefi-modules.txt:36` + `stock-uefiplat.cfg:129` name it; PILDxe enabled in **56** ports incl. pong (`pongPkg/Include/DXE.inc:102`); full evidence `docs/usb-pd-re.md` | yes — done in `e777d70` |
 | `QcomChargerApp` auto-launch under Mu `BdsDxe` | **~0% / residual** | `BdsDxe` kept (85/85 Silicium ports); no `DefaultChargerApp` string match in `BdsDxe`; stock QcomBds only; app is in FV and can be launched from Boot Manager | no — document residual (`usb-pd-re.md` §6) |
 
-**Commit policy:** commit firmware wiring that clears a ≥90% row. Never flip repo `Status.md` ❌→✅ without on-device evidence. Residual <90% claims stay in this appendix as risks.
+**Commit policy:** commit firmware wiring that clears a ≥90% row. Never flip repo `Status.md` ❌→✅ without on-device evidence. Residual <90% claims stay in this appendix as risks. When no code delta clears ≥90%, land docs and the quality-gate record only (as in the Host/Windows pass).
