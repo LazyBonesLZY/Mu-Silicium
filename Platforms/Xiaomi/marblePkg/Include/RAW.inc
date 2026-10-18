@@ -264,3 +264,17 @@
     SECTION RAW = Binaries/marble/RawFiles/QcomChargerCfg.cfg
     SECTION UI = "QcomChargerCfg.cfg"
   }
+
+  # Stock marble uefi.img PlatCfg (FREEFORM GUID/UI/RAW identical to stock, see
+  # docs/stock-fw-re.md Finding A; carve: notes/stock-re/carved/stock-uefiplat.cfg).
+  FILE FREEFORM = DDE58710-41CD-4306-DBFB-3FA90BB1D2DD {
+    SECTION RAW = Binaries/marble/RawFiles/uefiplat.cfg
+    SECTION UI = "uefiplat.cfg"
+  }
+
+  # Stock marble nested DXE FV BDS menu (FREEFORM GUID/UI/RAW identical to stock,
+  # see docs/stock-fw-re.md Finding E; carve: notes/stock-re/carved/stock-BDS_Menu.cfg).
+  FILE FREEFORM = A91D838E-A5FA-4138-825D-455E2303079E {
+    SECTION RAW = Binaries/marble/RawFiles/BDS_Menu.cfg
+    SECTION UI = "BDS_Menu.cfg"
+  }

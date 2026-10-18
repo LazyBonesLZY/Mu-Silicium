@@ -32,7 +32,7 @@ Evidence base:
 | USB Host Mode | ❌ | implemented, unverified | patched `UsbConfigDxe.patched.efi` kept (CBZ→B @ `0x5348`); XHCI/UsbBus APRIORI+DXE order is byte-for-byte identical to pong; ACPI SDT now present for `UsbConfigUpdateACPIEntry`/`UpdateDsdtTable` | ❌ not tested |
 | USB Power Delivery | ❌ | documented, unverified | `QcomChargerCfg.cfg` already embedded (GUID `45FE4B7C-…`); `PmicGlinkDxe`/`UsbPwrCtrlDxe`/`QcomChargerDxeLA`/`ChargerExDxe` already in APRIORI+DXE; PD itself is ChargerPD over `pmic-glink` (ADSP) | ❌ not tested |
 | Windows Boot | ❌ | enabled, unverified | ACPI stack enabled in `marble.dsc`/`marble.fdf` (`AcpiTableDxe`, `AcpiPlatformDxe`, `ACPITABLE marble/AcpiTables.inf`) alongside `DtPlatformDxe` + FdtBlob; DSDT carries `URS0`/`USB0`/`UFN0` | ❌ not tested |
-| Linux Boot | ❌ | unchanged path, documented | `DtPlatformDxe` + pinned `FdtBlob` kept; no standard FREEFORM GUID for `uefiplat.cfg`/`BDS_Menu.cfg` exists in-tree, so no RAW added; EFI-stub + DT + Boot Manager path | ❌ not tested |
+| Linux Boot | ❌ | PlatCfg/BDS embedded, unverified | `DtPlatformDxe` + pinned `FdtBlob` kept; stock `uefiplat.cfg` (`DDE58710-…`) + `BDS_Menu.cfg` (`A91D838E-…`) RAW now embedded in `RAW.inc` with GUID/UI/bytes identical to stock (`docs/stock-fw-re.md` Findings A/E); EFI-stub + DT + Boot Manager path | ❌ not tested |
 | USB Device Mode | ✅ | unchanged | `UsbfnDwc3Dxe` + `UsbDeviceDxe`/`UsbConfigDxe`/`UsbInitDxe` unchanged | n/a |
 | Mass Storage | ✅ | unchanged | `UsbMsdDxe` + `UsbMassStorageDxe` unchanged | n/a |
 
@@ -135,17 +135,27 @@ driver expects (`Silicium-ACPI/Platforms/Xiaomi/marble/Decompiled/DSDT.dsl`):
 behaviour; it remains ❌ until validated on device. The UEFI charger/GLINK plumbing is
 present but neither proves nor provides the ADSP PD state machine.
 
-## 4. Linux Boot (DT path kept, documented)
+## 4. Linux Boot (stock PlatCfg/BDS embedded; DT path kept)
 
 - `marble.fdf` keeps `DtPlatformDxe` and the pinned FdtBlob
   (`marblePkg/FdtBlob/sm8475-xiaomi-marble.dtb`, pinned via `FdtBlob/Source.txt`).
-- Stock `uefiplat.cfg` contains `DefaultBDSBootApp = "LinuxLoader"`. That is a
-  **string**, and `EFI_CONFIGURATION_ENTRY_DESCRIPTOR.Value` is `UINT64`
-  (`ConfigurationMapLib.h`), so it cannot be represented in `ConfigurationMapLib.c`.
-- A search across the tree (sources, `.dsc`/`.fdf`/`.inc`/`.inf`/`.dec`) found **no
-  Silicium-standard FREEFORM GUID** for embedding `uefiplat.cfg` or `BDS_Menu.cfg`.
-  They exist only as stock inputs under `Binaries/<dev>/RawFiles/`; no port embeds
-  them. No RAW file was invented.
+- `Include/RAW.inc` now embeds the two stock configuration files verbatim
+  (`docs/stock-fw-re.md` Findings A/E):
+  - `FREEFORM = DDE58710-41CD-4306-DBFB-3FA90BB1D2DD` / UI `uefiplat.cfg` → RAW
+    `Binaries/marble/RawFiles/uefiplat.cfg` (sha256 `5116faca…`, `cmp`-identical to
+    stock carve `notes/stock-re/carved/stock-uefiplat.cfg`).
+  - `FREEFORM = A91D838E-A5FA-4138-825D-455E2303079E` / UI `BDS_Menu.cfg` → RAW
+    `Binaries/marble/RawFiles/BDS_Menu.cfg` (sha256 `1786bfcb…`, `cmp`-identical to
+    stock carve `notes/stock-re/carved/stock-BDS_Menu.cfg`).
+- This carries the stock string `DefaultBDSBootApp = "LinuxLoader"` inside
+  `uefiplat.cfg` into the firmware image exactly as stock does, so the
+  `ConfigurationMapLib` limitation (`EFI_CONFIGURATION_ENTRY_DESCRIPTOR.Value` is
+  `UINT64`, `ConfigurationMapLib.h`) is bypassed rather than worked around — no
+  string map was invented.
+- Structural note: stock places `uefiplat.cfg` at the top-level `uefi.img` FV and
+  `BDS_Menu.cfg` in the nested DXE FV; Mu's `RAW.inc` is included in `FvMain`
+  (`marble.fdf`), so both are embedded one FV level higher while keeping the stock
+  GUID/UI/RAW bytes.
 - Therefore Linux boot remains the Silicium EFI-stub + DT path: `DtPlatformDxe`
   publishes the DT and the Boot Manager (`BootManagerLib` / Mu patch) launches the
   installed boot entry. This is the pong pattern and is what commit `2e5a9f3` set up.
@@ -186,6 +196,8 @@ present but neither proves nor provides the ADSP PD state machine.
 | UEFI USB Host “works on device” | **<50%** | firmware stack present; no `fastboot boot` log | Status stays ❌/unverified |
 | USB PD fully works | **<50%** | `QcomChargerCfg.cfg` + PmicGlink/UsbPwrCtrl present; PD is ADSP ChargerPD; mainline DT has no usb-c-connector | document only; Status stays ❌ |
 | Linux Boot via DT path is correctly wired in FV | **≥90%** | `marble.fdf` `DtPlatformDxe` + FREEFORM FdtBlob; `FdtBlob/Source.txt` commit `c9f87aac…`; prior commit `2e5a9f3` | keep; Status unverified on device |
-| `DefaultBDSBootApp=LinuxLoader` can be put in ConfigurationMapLib | **≥95% that it cannot** | `ConfigurationMapLib.h` `UINT64 Value`; stock string only in `Binaries/marble/RawFiles/uefiplat.cfg`; no Silicium RAW.inc embeds `uefiplat.cfg` (rg across Platforms) | do not invent string map |
+| Stock `uefiplat.cfg` + `BDS_Menu.cfg` embedded with stock GUID/UI/RAW | **≥95%** | `docs/stock-fw-re.md` Findings A/E; carves `/workspace/marble/uefi/notes/stock-re/carved/stock-uefiplat.cfg` (sha256 `5116faca…`) and `/workspace/marble/uefi/notes/stock-re/carved/stock-BDS_Menu.cfg` (sha256 `1786bfcb…`), both `cmp`-identical to `Binaries/marble/RawFiles/`; `Include/RAW.inc` GUIDs `DDE58710-…`/`A91D838E-…`; LE GUID byte scan hits `uefi.img`@`0x49000` / `nested.fv`@`0x3AE628` | yes — `RAW.inc` |
+| Linux Boot / PlatCfg statically matches stock FV embedding | **≥90%** | `docs/stock-fw-re.md` Findings A/E + carves above; `RAW.inc` GUID/UI/RAW identical to stock; residual is placement one FV level higher (`FvMain`) and no on-device boot | keep; Status stays ❌ until on-device |
+| `DefaultBDSBootApp=LinuxLoader` reaches firmware like stock | **≥90%** | stock string lives in `Binaries/marble/RawFiles/uefiplat.cfg`; now embedded verbatim via `RAW.inc` GUID `DDE58710-…` (carve identical), so no `ConfigurationMapLib` string map is needed; `ConfigurationMapLib.h` `UINT64 Value` still rules out a *numeric* encoding | yes — stock cfg embed |
 
 **Commit policy:** commit firmware wiring that clears a ≥90% row. Never flip repo `Status.md` ❌→✅ without on-device evidence. Residual <90% claims stay in this appendix as risks.
