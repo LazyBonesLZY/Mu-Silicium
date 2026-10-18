@@ -32,7 +32,7 @@ Evidence base:
 | USB Host Mode | ❌ | implemented, unverified | patched `UsbConfigDxe.patched.efi` kept (CBZ→B @ `0x5348`); XHCI/UsbBus APRIORI+DXE order is byte-for-byte identical to pong; ACPI SDT now present for `UsbConfigUpdateACPIEntry`/`UpdateDsdtTable` | ❌ not tested |
 | USB Power Delivery | ❌ | documented, unverified | `QcomChargerCfg.cfg` already embedded (GUID `45FE4B7C-…`); `PmicGlinkDxe`/`UsbPwrCtrlDxe`/`QcomChargerDxeLA`/`ChargerExDxe` already in APRIORI+DXE; PD itself is ChargerPD over `pmic-glink` (ADSP) | ❌ not tested |
 | Windows Boot | ❌ | enabled, unverified | ACPI stack enabled in `marble.dsc`/`marble.fdf` (`AcpiTableDxe`, `AcpiPlatformDxe`, `ACPITABLE marble/AcpiTables.inf`) alongside `DtPlatformDxe` + FdtBlob; DSDT carries `URS0`/`USB0`/`UFN0` | ❌ not tested |
-| Linux Boot | ❌ | PlatCfg/BDS embedded, unverified | `DtPlatformDxe` + pinned `FdtBlob` kept; stock `uefiplat.cfg` (`DDE58710-…`) + `BDS_Menu.cfg` (`A91D838E-…`) RAW now embedded in `RAW.inc` with GUID/UI/bytes identical to stock (`docs/stock-fw-re.md` Findings A/E); EFI-stub + DT + Boot Manager path | ❌ not tested |
+| Linux Boot | ❌ | PlatCfg/BDS embedded, unverified | `DtPlatformDxe` + pinned `FdtBlob` kept; stock `uefiplat.cfg` (`DDE58710-…`) + `BDS_Menu.cfg` (`A91D838E-…`) RAW now embedded in `RAW.inc` with GUID/UI/bytes identical to stock (`docs/stock-fw-re.md` Findings A/E); EFI-stub + DT + Boot Manager path; `BdsDxe` kept by design — no `QcomBds` swap or addition (`docs/bds-qcombds-analysis.md`) | ❌ not tested |
 | USB Device Mode | ✅ | unchanged | `UsbfnDwc3Dxe` + `UsbDeviceDxe`/`UsbConfigDxe`/`UsbInitDxe` unchanged | n/a |
 | Mass Storage | ✅ | unchanged | `UsbMsdDxe` + `UsbMassStorageDxe` unchanged | n/a |
 
@@ -127,6 +127,12 @@ driver expects (`Silicium-ACPI/Platforms/Xiaomi/marble/Decompiled/DSDT.dsl`):
   references it, so it is not embedded in the image; the
   `DefaultChargerApp = "QcomChargerApp"` string in stock `uefiplat.cfg` is likewise
   not carried (see §4).
+- **≥90% precedent check for adding it:** `QcomChargerApp` appears in **0/85**
+  `Platforms/**/Include/DXE.inc` and in **no** `.fdf` across every Silicium port
+  (`grep QcomChargerApp Platforms/` matches only these docs). The stock nested DXE FV
+  VolInfo *does* list it (`notes/stock-re/carved/stock-uefi-modules.txt`), but there is
+  no Silicium precedent for embedding/launching it. It therefore stays a **residual
+  under USB PD** and is **not** added — no guessed `.fdf` entry.
 - PD proper is ChargerPD over `pmic-glink` (ADSP side: `ChargerPDLogging*`,
   `ChargerpdQBGDumpEnable`). There is no UEFI-side "PD enable" knob to add, and no
   fake config key was invented.
@@ -156,6 +162,13 @@ present but neither proves nor provides the ADSP PD state machine.
   `BDS_Menu.cfg` in the nested DXE FV; Mu's `RAW.inc` is included in `FvMain`
   (`marble.fdf`), so both are embedded one FV level higher while keeping the stock
   GUID/UI/RAW bytes.
+- **BDS decision (kept by design):** `marble` keeps `BdsDxe` and does **not** switch to
+  or add `QcomBds` (`docs/bds-qcombds-analysis.md`). Classification across Silicium is
+  85 `BdsDxe` / 0 `QcomBds`; `SiliciumPkg.dsc.inc` binds
+  `PlatformBootManagerLib` (`SiliciumPkg/Library/BootManagerLib/BootManagerLib.inf`)
+  to `MdeModulePkg/Universal/BdsDxe/BdsDxe.inf`. The stock `uefiplat.cfg` +
+  `BDS_Menu.cfg` are embedded via `RAW.inc` while the Mu BDS remains `BdsDxe` — this
+  is the pong/Nothing Silicium pattern, not a QcomBds port.
 - Therefore Linux boot remains the Silicium EFI-stub + DT path: `DtPlatformDxe`
   publishes the DT and the Boot Manager (`BootManagerLib` / Mu patch) launches the
   installed boot entry. This is the pong pattern and is what commit `2e5a9f3` set up.
@@ -199,5 +212,8 @@ present but neither proves nor provides the ADSP PD state machine.
 | Stock `uefiplat.cfg` + `BDS_Menu.cfg` embedded with stock GUID/UI/RAW | **≥95%** | `docs/stock-fw-re.md` Findings A/E; carves `/workspace/marble/uefi/notes/stock-re/carved/stock-uefiplat.cfg` (sha256 `5116faca…`) and `/workspace/marble/uefi/notes/stock-re/carved/stock-BDS_Menu.cfg` (sha256 `1786bfcb…`), both `cmp`-identical to `Binaries/marble/RawFiles/`; `Include/RAW.inc` GUIDs `DDE58710-…`/`A91D838E-…`; LE GUID byte scan hits `uefi.img`@`0x49000` / `nested.fv`@`0x3AE628` | yes — `RAW.inc` |
 | Linux Boot / PlatCfg statically matches stock FV embedding | **≥90%** | `docs/stock-fw-re.md` Findings A/E + carves above; `RAW.inc` GUID/UI/RAW identical to stock; residual is placement one FV level higher (`FvMain`) and no on-device boot | keep; Status stays ❌ until on-device |
 | `DefaultBDSBootApp=LinuxLoader` reaches firmware like stock | **≥90%** | stock string lives in `Binaries/marble/RawFiles/uefiplat.cfg`; now embedded verbatim via `RAW.inc` GUID `DDE58710-…` (carve identical), so no `ConfigurationMapLib` string map is needed; `ConfigurationMapLib.h` `UINT64 Value` still rules out a *numeric* encoding | yes — stock cfg embed |
+
+| Replace `BdsDxe` with `QcomBds` | **≤40% / reject** | `0` Silicium `DXE.inc` use `QcomBds`; **85** use `BdsDxe` (`Platforms/**/Include/DXE.inc`); `Silicon/Silicium/SiliciumPkg/SiliciumPkg.dsc.inc` binds `PlatformBootManagerLib\|SiliciumPkg/Library/BootManagerLib/BootManagerLib.inf` to `MdeModulePkg/Universal/BdsDxe/BdsDxe.inf`; stock nested FV has `QcomBds` UI (`notes/stock-re/carved/nested.fv`, `stock-uefi-modules.txt`) but the Mu path is Silicium `BdsDxe` (`docs/bds-qcombds-analysis.md`) | no — keep `BdsDxe`; no swap/add |
+| Embed/launch `QcomChargerApp` in marble FDF/DXE | **~0% / reject (no precedent)** | `Binaries/marble/QcomPkg/Application/QcomChargerApp/QcomChargerApp.inf` exists; stock nested FV VolInfo lists `QcomChargerApp` (`notes/stock-re/carved/stock-uefi-modules.txt`); but `0/85` Silicium `DXE.inc` and no `.fdf` reference it (`grep QcomChargerApp Platforms/` → docs only) | no — document residual under USB PD |
 
 **Commit policy:** commit firmware wiring that clears a ≥90% row. Never flip repo `Status.md` ❌→✅ without on-device evidence. Residual <90% claims stay in this appendix as risks.

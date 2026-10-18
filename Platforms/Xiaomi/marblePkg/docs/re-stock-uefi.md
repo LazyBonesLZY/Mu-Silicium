@@ -16,7 +16,7 @@ Date: 2026-10-19 Asia/Shanghai. Sources: `Binaries/marble` (Device-Binaries), st
 
 - `QcomChargerCfg.cfg` already in `RAW.inc` (GUID `21E9BDD9-…`).
 - PD path is **ChargerPD via PMIC GLINK** (`ChargerPDLogging*`, `ChargerpdQBGDumpEnable`) — ADSP-side, not a simple UEFI toggle.
-- DXE already has `UsbPwrCtrlDxe`, `PmicGlinkDxe`, `QcomChargerDxeLA`, `ChargerExDxe`, `QcomChargerApp`.
+- DXE already has `UsbPwrCtrlDxe`, `PmicGlinkDxe`, `QcomChargerDxeLA`, `ChargerExDxe`; `QcomChargerApp` exists only in `Binaries/marble/QcomPkg/Application/` and in stock nested-FV VolInfo (`notes/stock-re/carved/stock-uefi-modules.txt`) — no `.fdf`/`DXE.inc` reference in marble or any Silicium port (`docs/status-gaps.md` §3).
 - Mainline DT: `pmic-glink` present; **no usb-c-connector**; `usb_1` `dr_mode=peripheral`.
 - **Decision:** Document PD as best-effort (firmware already wired). Optional: ensure charger app / glink init order matches pong. Do not invent fake PD config keys.
 
