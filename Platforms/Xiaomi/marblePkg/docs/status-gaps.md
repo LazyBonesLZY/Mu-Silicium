@@ -9,6 +9,12 @@ Scope: close the four `❌` rows in the repo `Status.md` entry for Xiaomi Poco F
 > as a claim of on-device success; it records what was implemented and the residual
 > unknowns. The repo-level `Status.md` is intentionally **not** flipped to ✅.
 
+> **Static ceiling reached.** The four ❌ rows below (USB Host, USB PD, Windows Boot,
+> Linux Boot) cannot be raised to evidence-backed ✅ by any further static
+> reverse-engineering. **goal blocked: static ceiling.** See
+> [`static-blockers.md`](static-blockers.md) for the per-row hard blockers, citations,
+> and goal disposition. No on-device validation is available or claimed.
+
 Evidence base:
 
 - `Platforms/Xiaomi/marblePkg/docs/re-stock-uefi.md` — director stock-RE notes
